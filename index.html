@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Masked Brush</title>
+  <style>
+    body {
+      margin: 0;
+      background: skyblue;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    canvas {
+      border: none;
+      cursor: crosshair;
+    }
+
+    #controls {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    button, select {
+      font-size: 16px;
+      padding: 6px 12px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="800" height="600"></canvas>
+<audio id="bgm" src="song.mp3" loop></audio>
+
+<div id="controls">
+  <button id="resetBtn">Reset</button>
+  <label>
+    Brush:
+    <select id="brushSelect">
+      <option value="circle">Circle</option>
+      <option value="star">Star</option>
+      <option value="heart">Heart</option>
+    </select>
+  </label>
+</div>
+
+<script>
+    // 🎵 클릭 시 음악 재생
+    const bgm = document.getElementById("bgm");
+    document.body.addEventListener("click", () => {
+      bgm.play();
+    }, { once: true });
+    
+const canvas = document.getElementById('myCanvas');
+const ctx = canvas.getContext('2d');
+
+const bgImg = new Image();
+const brushImg = new Image();
+bgImg.src = 'background.jpg';
+brushImg.src = 'overlay.jpg';
+
+// 마스크용 별도 캔버스
+const maskCanvas = document.createElement('canvas');
+maskCanvas.width = canvas.width;
+maskCanvas.height = canvas.height;
+const maskCtx = maskCanvas.getContext('2d');
+
+let painting = false;
+let brushType = 'circle';
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  maskCtx.clearRect(0, 0, canvas.width, canvas.height);
+  drawScene();
+});
+
+document.getElementById('brushSelect').addEventListener('change', (e) => {
+  brushType = e.target.value;
+});
+
+canvas.addEventListener('mousedown', () => painting = true);
+canvas.addEventListener('mouseup', () => painting = false);
+canvas.addEventListener('mousemove', drawBrush);
+
+Promise.all([
+  new Promise(resolve => bgImg.onload = resolve),
+  new Promise(resolve => brushImg.onload = resolve)
+]).then(() => {
+  drawScene();
+});
+
+function drawBrush(e) {
+  if (!painting) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // 마스크 그리기
+  maskCtx.fillStyle = 'white';
+  maskCtx.strokeStyle = 'white';
+  maskCtx.lineWidth = 1;
+
+  switch (brushType) {
+    case 'circle':
+      maskCtx.beginPath();
+      maskCtx.arc(x, y, 20, 0, Math.PI * 2);
+      maskCtx.fill();
+      maskCtx.stroke(); // 흰색 경계선
+      break;
+
+    case 'star':
+      drawStar(maskCtx, x, y, 5, 20, 10);
+      break;
+
+    case 'heart':
+      drawHeart(maskCtx, x, y, 20);
+      break;
+  }
+
+  drawScene();
+}
+
+function drawScene() {
+  // 하늘색 배경
+  ctx.fillStyle = 'skyblue';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 배경 이미지
+  ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+  // 마스크된 브러시 이미지
+  const masked = applyMask(brushImg, maskCanvas);
+  ctx.drawImage(masked, 0, 0, canvas.width, canvas.height);
+}
+
+function applyMask(image, mask) {
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+  const tempCtx = tempCanvas.getContext('2d');
+
+  tempCtx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  tempCtx.globalCompositeOperation = 'destination-in';
+  tempCtx.drawImage(mask, 0, 0);
+
+  return tempCanvas;
+}
+
+// ⭐ 별 그리기 함수
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+  let rot = Math.PI / 2 * 3;
+  let x = cx;
+  let y = cy;
+  const step = Math.PI / spikes;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerRadius);
+  for (let i = 0; i < spikes; i++) {
+    x = cx + Math.cos(rot) * outerRadius;
+    y = cy + Math.sin(rot) * outerRadius;
+    ctx.lineTo(x, y);
+    rot += step;
+
+    x = cx + Math.cos(rot) * innerRadius;
+    y = cy + Math.sin(rot) * innerRadius;
+    ctx.lineTo(x, y);
+    rot += step;
+  }
+  ctx.lineTo(cx, cy - outerRadius);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+// 💗 하트 그리기 함수
+function drawHeart(ctx, x, y, size) {
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.bezierCurveTo(x - size / 2, y - size / 2, x - size, y + size / 3, x, y + size);
+  ctx.bezierCurveTo(x + size, y + size / 3, x + size / 2, y - size / 2, x, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+</script>
+
+</body>
+</html>
